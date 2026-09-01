@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>한끼로그</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#4C8C5C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="한끼로그">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>[hidden]{display:none!important} img{max-width:100%}</style>
+</head>
+<body>
+<style>
+  :root{
+    --bg:#F7F6F2; --card:#FFFFFF; --ink:#26302A; --muted:#77816F;
+    --line:#E4E4DB; --accent:#4C8C5C; --accent-deep:#356844;
+    --accent-soft:#E7F0E7; --danger:#B4543E; --shadow:0 2px 10px rgba(38,48,42,.08);
+    --sheet-bg:#FFFFFF; --backdrop:rgba(30,38,32,.45);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#151A17; --card:#1E2620; --ink:#E8EDE8; --muted:#93A096;
+      --line:#2C362F; --accent:#6FBF85; --accent-deep:#8ED4A2;
+      --accent-soft:#24352A; --danger:#E08A75; --shadow:0 2px 10px rgba(0,0,0,.35);
+      --sheet-bg:#1E2620; --backdrop:rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#151A17; --card:#1E2620; --ink:#E8EDE8; --muted:#93A096;
+    --line:#2C362F; --accent:#6FBF85; --accent-deep:#8ED4A2;
+    --accent-soft:#24352A; --danger:#E08A75; --shadow:0 2px 10px rgba(0,0,0,.35);
+    --sheet-bg:#1E2620; --backdrop:rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  html{font-size:10pt}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Malgun Gothic","맑은 고딕","Apple SD Gothic Neo",Arial,sans-serif;
+    font-size:10pt; line-height:1.55;
+    -webkit-tap-highlight-color:transparent;
+  }
+  button{font-family:inherit; font-size:inherit; color:inherit; background:none; border:none; padding:0; cursor:pointer}
+  button:focus-visible, input:focus-visible, textarea:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+  .app{max-width:480px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; padding-bottom:96px}
+
+  header{padding:20px 18px 10px}
+  .brand{display:flex; align-items:baseline; gap:8px}
+  .brand h1{margin:0; font-size:1.5rem; letter-spacing:-.02em}
+  .brand .tag{color:var(--muted); font-size:.9rem}
+  .brand .gear{margin-left:auto; font-size:1.15rem; color:var(--muted); padding:4px}
+  .tabs{display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:14px; background:var(--card); border-radius:12px; padding:4px; box-shadow:var(--shadow)}
+  .tabs button{padding:8px 0; border-radius:9px; font-weight:700; color:var(--muted)}
+  .tabs button.on{background:var(--accent); color:#fff}
+  .datebar{display:flex; align-items:center; justify-content:space-between; margin-top:14px; padding:0 18px}
+  .datebar .cur{font-size:1.15rem; font-weight:700}
+  .datebar .cur .rel{color:var(--accent-deep); font-weight:700; margin-left:6px; font-size:.95rem}
+  .nav-btn{width:34px; height:34px; border-radius:50%; background:var(--card); box-shadow:var(--shadow);
+    display:flex; align-items:center; justify-content:center; font-size:1rem; color:var(--muted)}
+  .nav-btn:active{transform:scale(.94)}
+
+  .week{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; padding:12px 14px 4px}
+  .day{display:flex; flex-direction:column; align-items:center; gap:2px; padding:7px 0 5px; border-radius:12px}
+  .day .wd{font-size:.8rem; color:var(--muted)}
+  .day .num{font-size:1.05rem; font-weight:700; font-variant-numeric:tabular-nums}
+  .day .dot{width:5px; height:5px; border-radius:50%; background:transparent}
+  .day.has .dot{background:var(--accent)}
+  .day.sel{background:var(--accent-soft)}
+  .day.sel .wd,.day.sel .num{color:var(--accent-deep)}
+  .day.today .num{text-decoration:underline; text-underline-offset:3px}
+
+  .summary{padding:14px 18px 6px; color:var(--muted); font-size:.92rem}
+  .summary b{color:var(--ink)}
+
+  .timeline{display:flex; flex-direction:column; gap:14px; padding:8px 16px}
+  .card{background:var(--card); border-radius:16px; box-shadow:var(--shadow); overflow:hidden}
+  .card .photo{display:block; width:100%; max-height:340px; object-fit:cover; cursor:zoom-in; background:var(--line)}
+  .card .body{padding:11px 14px 12px}
+  .card .row1{display:flex; align-items:center; gap:8px}
+  .slot-chip{font-size:.85rem; font-weight:700; color:var(--accent-deep); background:var(--accent-soft);
+    border-radius:99px; padding:2px 10px}
+  .card .time{color:var(--muted); font-size:.85rem; font-variant-numeric:tabular-nums}
+  .card .del{margin-left:auto; color:var(--muted); font-size:.85rem; padding:4px 6px}
+  .card .memo{margin:6px 0 0; white-space:pre-wrap; word-break:break-word}
+  .confirm{display:flex; gap:8px; align-items:center; margin-left:auto; font-size:.85rem}
+  .confirm .yes{color:var(--danger); font-weight:700; padding:4px 6px}
+  .confirm .no{color:var(--muted); padding:4px 6px}
+
+  .empty{text-align:center; color:var(--muted); padding:56px 20px}
+  .empty .big{font-size:2.2rem; margin-bottom:8px}
+
+  .fab{position:fixed; left:50%; transform:translateX(-50%); bottom:22px; z-index:20;
+    background:var(--accent); color:#fff; font-weight:700; font-size:1.05rem;
+    padding:13px 30px; border-radius:99px; box-shadow:0 6px 18px rgba(53,104,68,.35)}
+  .fab:active{transform:translateX(-50%) scale(.96)}
+
+  .backdrop{position:fixed; inset:0; background:var(--backdrop); z-index:30; opacity:0; transition:opacity .2s}
+  .backdrop.open{opacity:1}
+  .sheet{position:fixed; left:50%; transform:translate(-50%,105%); bottom:0; z-index:31;
+    width:100%; max-width:480px; background:var(--sheet-bg); border-radius:20px 20px 0 0;
+    padding:18px 18px calc(18px + env(safe-area-inset-bottom)); transition:transform .25s ease;
+    max-height:88vh; overflow-y:auto}
+  .sheet.open{transform:translate(-50%,0)}
+  @media (prefers-reduced-motion: reduce){ .sheet,.backdrop{transition:none} }
+  .sheet h2{margin:0 0 12px; font-size:1.15rem}
+  .pick{display:block; width:100%; border:2px dashed var(--line); border-radius:14px; padding:26px 10px;
+    text-align:center; color:var(--muted); cursor:pointer}
+  .pick:active{border-color:var(--accent)}
+  .pick .cam{font-size:1.8rem; display:block; margin-bottom:4px}
+  .pick .sub{display:block; font-size:.85rem; margin-top:3px}
+  .preview-wrap{position:relative; display:none}
+  .preview{width:100%; border-radius:14px; display:block; max-height:300px; object-fit:cover}
+  .rechoose{position:absolute; right:10px; bottom:10px; background:rgba(0,0,0,.55); color:#fff;
+    font-size:.85rem; padding:5px 12px; border-radius:99px}
+  .slots{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:14px 0}
+  .slots button{padding:9px 0; border-radius:10px; background:var(--bg); color:var(--muted); font-weight:700; border:1px solid var(--line)}
+  .slots button.on{background:var(--accent); border-color:var(--accent); color:#fff}
+  .sheet textarea{width:100%; border:1px solid var(--line); border-radius:10px; background:var(--bg);
+    color:var(--ink); padding:10px 12px; font-family:inherit; font-size:10pt; resize:none; min-height:64px}
+  .sheet .save{width:100%; margin-top:12px; background:var(--accent); color:#fff; font-weight:700;
+    font-size:1.05rem; padding:13px 0; border-radius:12px}
+  .sheet .save:disabled{opacity:.5}
+
+  .monthbar{display:flex; align-items:center; justify-content:space-between; padding:16px 18px 8px}
+  .monthbar .cur{font-size:1.15rem; font-weight:700}
+  .wstats{display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:4px 16px 10px}
+  .wstat{background:var(--card); border-radius:14px; box-shadow:var(--shadow); padding:10px 14px}
+  .wstat .lbl{font-size:.85rem; color:var(--muted)}
+  .wstat .val{font-size:1.35rem; font-weight:700; font-variant-numeric:tabular-nums}
+  .wstat .val small{font-size:.85rem; font-weight:400; color:var(--muted); margin-left:4px}
+  .cal{padding:0 14px}
+  .cal .grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
+  .cal .wdh{text-align:center; font-size:.8rem; color:var(--muted); padding:6px 0}
+  .cal .cell{min-height:52px; border-radius:10px; background:var(--card); box-shadow:var(--shadow);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:4px 0}
+  .cal .cell:disabled{opacity:.35; box-shadow:none; background:transparent; cursor:default}
+  .cal .cell.blank{visibility:hidden}
+  .cal .cell .d{font-size:.85rem; color:var(--muted); font-variant-numeric:tabular-nums}
+  .cal .cell.today .d{color:var(--accent-deep); font-weight:700; text-decoration:underline; text-underline-offset:3px}
+  .cal .cell .kg{font-size:.92rem; font-weight:700; color:var(--accent-deep); font-variant-numeric:tabular-nums}
+  .cal .cell.has{background:var(--accent-soft)}
+  .whint{text-align:center; color:var(--muted); font-size:.88rem; padding:14px}
+  .wsheet-date{color:var(--muted); margin:0 0 10px}
+  .winput{display:flex; align-items:center; gap:10px}
+  .winput input{flex:1; min-width:0; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink);
+    padding:12px; font-family:inherit; font-size:1.3rem; font-weight:700; text-align:right; font-variant-numeric:tabular-nums}
+  .winput .unit{font-weight:700; color:var(--muted)}
+  .wdel{width:100%; margin-top:8px; color:var(--danger); font-weight:700; padding:10px 0}
+
+  /* ── PIN 잠금 ──────────────────────── */
+  .lock{position:fixed; inset:0; z-index:100; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:24px}
+  .lock-box{width:100%; max-width:320px; text-align:center}
+  .lock-box .logo{font-size:2.6rem}
+  .lock-box h1{margin:6px 0 2px; font-size:1.4rem}
+  .lock-box p{color:var(--muted); margin:0 0 18px}
+  .lock-box input{width:100%; border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--ink);
+    padding:13px; font-family:inherit; font-size:1.4rem; font-weight:700; text-align:center; letter-spacing:.4em}
+  .lock-box .go{width:100%; margin-top:12px; background:var(--accent); color:#fff; font-weight:700;
+    font-size:1.05rem; padding:13px 0; border-radius:12px}
+  .lock-box .sub{margin-top:16px; color:var(--muted); font-size:.88rem; text-decoration:underline; text-underline-offset:3px}
+  .lock-box .err{color:var(--danger); font-size:.9rem; min-height:1.4em; margin-top:10px}
+
+  /* ── 설정 시트 ─────────────────────── */
+  .set-list{display:flex; flex-direction:column}
+  .set-list button{display:flex; align-items:center; gap:10px; padding:13px 4px; border-bottom:1px solid var(--line); text-align:left}
+  .set-list button:last-child{border-bottom:none}
+  .set-list .ico{width:24px; text-align:center}
+  .set-list .danger{color:var(--danger)}
+  .set-note{color:var(--muted); font-size:.88rem; margin:10px 0 0}
+
+  .lightbox{position:fixed; inset:0; z-index:110; background:rgba(0,0,0,.88); display:none;
+    align-items:center; justify-content:center; cursor:zoom-out}
+  .lightbox img{max-width:96vw; max-height:92vh; border-radius:6px}
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:88px; z-index:120;
+    background:var(--ink); color:var(--bg); padding:9px 18px; border-radius:99px; font-size:.92rem;
+    opacity:0; transition:opacity .25s; pointer-events:none; max-width:88vw; text-align:center}
+  .toast.show{opacity:.95}
+</style>
+
+<div class="lock" id="lock" hidden>
+  <div class="lock-box">
+    <div class="logo">🍱</div>
+    <h1>한끼로그 포켓</h1>
+    <p id="lockMsg">PIN을 입력해주세요</p>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="8" placeholder="····" aria-label="PIN">
+    <button class="go" id="pinGo">열기</button>
+    <div class="err" id="pinErr"></div>
+    <button class="sub" id="pinForgot" hidden>PIN을 잊었어요</button>
+  </div>
+</div>
+
+<div class="app" id="appRoot" hidden>
+  <header>
+    <div class="brand">
+      <h1>한끼로그</h1><span class="tag">이 폰에만 저장</span>
+      <button class="gear" id="gearBtn" aria-label="설정">⚙️</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button id="tabMeal" class="on" role="tab" aria-selected="true">🍽️ 식사</button>
+      <button id="tabWeight" role="tab" aria-selected="false">⚖️ 몸무게</button>
+    </div>
+  </header>
+
+  <section id="mealView">
+    <div class="datebar">
+      <button class="nav-btn" id="prevDay" aria-label="이전 날">◀</button>
+      <div class="cur"><span id="curDate"></span><span class="rel" id="curRel"></span></div>
+      <button class="nav-btn" id="nextDay" aria-label="다음 날">▶</button>
+    </div>
+    <div class="week" id="week"></div>
+    <div class="summary" id="summary"></div>
+    <div class="timeline" id="timeline"></div>
+  </section>
+
+  <section id="weightView" hidden>
+    <div class="monthbar">
+      <button class="nav-btn" id="prevMonth" aria-label="이전 달">◀</button>
+      <div class="cur" id="curMonth"></div>
+      <button class="nav-btn" id="nextMonth" aria-label="다음 달">▶</button>
+    </div>
+    <div class="wstats">
+      <div class="wstat"><div class="lbl">최근 몸무게</div><div class="val" id="wLatest">—</div></div>
+      <div class="wstat"><div class="lbl">이번 달 변화</div><div class="val" id="wDelta">—</div></div>
+    </div>
+    <div class="cal" id="cal"></div>
+    <div class="whint">날짜를 누르면 몸무게를 기록할 수 있어요.</div>
+  </section>
+</div>
+
+<button class="fab" id="fab" hidden>＋ 기록하기</button>
+
+<div class="backdrop" id="backdrop" hidden></div>
+
+<div class="sheet" id="sheet" role="dialog" aria-label="식사 기록 추가">
+  <h2>이 한 끼, 남기기</h2>
+  <label class="pick" id="pickLabel">
+    <span class="cam">📷</span>사진을 찍거나 골라주세요
+    <span class="sub">사진이 없으면 아래에 글만 적고 저장해도 돼요</span>
+    <input type="file" id="photoInput" accept="image/*" hidden>
+  </label>
+  <div class="preview-wrap" id="previewWrap">
+    <img class="preview" id="preview" alt="선택한 사진 미리보기">
+    <button class="rechoose" id="rechoose">다시 선택</button>
+  </div>
+  <div class="slots" id="slots">
+    <button data-slot="아침">아침</button>
+    <button data-slot="점심">점심</button>
+    <button data-slot="저녁">저녁</button>
+    <button data-slot="간식">간식</button>
+  </div>
+  <textarea id="memo" placeholder="메뉴나 느낌을 한 줄로 (선택)" maxlength="300"></textarea>
+  <button class="save" id="saveBtn" disabled>저장</button>
+</div>
+
+<div class="sheet" id="wSheet" role="dialog" aria-label="몸무게 기록">
+  <h2>몸무게 기록</h2>
+  <p class="wsheet-date" id="wSheetDate"></p>
+  <div class="winput">
+    <input id="wInput" type="text" inputmode="decimal" placeholder="72.5" maxlength="6" aria-label="몸무게(킬로그램)">
+    <span class="unit">kg</span>
+  </div>
+  <button class="save" id="wSaveBtn">저장</button>
+  <button class="wdel" id="wDelBtn" hidden>기록 삭제</button>
+</div>
+
+<div class="sheet" id="setSheet" role="dialog" aria-label="설정">
+  <h2>설정</h2>
+  <div class="set-list">
+    <button id="setPin"><span class="ico">🔒</span><span id="setPinLabel">PIN 설정</span></button>
+    <button id="setExport"><span class="ico">📤</span>백업 내보내기</button>
+    <button id="setImport"><span class="ico">📥</span>백업 가져오기<input type="file" id="importInput" accept="application/json,.json" hidden></button>
+    <button id="setWipe" class="danger"><span class="ico">🗑️</span><span id="wipeLabel">모든 기록 삭제</span></button>
+  </div>
+  <p class="set-note">기록은 이 기기의 브라우저 안에만 저장됩니다. 브라우저 데이터를 지우면 기록도 사라지니, 가끔 백업을 내보내 두세요.</p>
+</div>
+
+<div class="lightbox" id="lightbox"><img id="lightboxImg" alt="사진 크게 보기"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const WD = ["일","월","화","수","목","금","토"];
+
+let idb = null, downloadsNS = null;
+const state = {
+  date: todayStr(), entries: [], dayCounts: {},
+  photo: null, slot: null, saving: false, confirmDel: null,
+  view: "meal", month: todayStr().slice(0,7), weights: {}, latestW: null,
+  wDate: null, dayWeight: null,
+  pinMode: null,   // "unlock" | "setup1" | "setup2" | null
+  pinTemp: null, wipeArmed: false,
+};
+
+/* ── 날짜 도우미 ────────────────────── */
+function todayStr(){ return dateToStr(new Date()); }
+function dateToStr(d){
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function strToDate(s){ const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); }
+function shiftDate(s,n){ const d = strToDate(s); d.setDate(d.getDate()+n); return dateToStr(d); }
+function weekOf(s){
+  const d = strToDate(s); d.setDate(d.getDate()-d.getDay());
+  return Array.from({length:7},(_,i)=>{ const x = new Date(d); x.setDate(d.getDate()+i); return dateToStr(x); });
+}
+function relLabel(s){
+  const diff = Math.round((strToDate(s)-strToDate(todayStr()))/86400000);
+  return diff===0?"오늘":diff===-1?"어제":diff===1?"내일":"";
+}
+function fmtDate(s){ const d = strToDate(s); return (d.getMonth()+1)+"월 "+d.getDate()+"일 ("+WD[d.getDay()]+")"; }
+function fmtMonth(m){ const [y,mo] = m.split("-"); return y+"년 "+Number(mo)+"월"; }
+function shiftMonth(m,n){ const [y,mo] = m.split("-").map(Number); const d = new Date(y,mo-1+n,1);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function fmtTime(ts){ const d = new Date(ts); return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); }
+function guessSlot(){ const h = new Date().getHours(); return h<11?"아침":h<16?"점심":h<21?"저녁":"간식"; }
+function esc(t){ const d = document.createElement("div"); d.textContent = t; return d.innerHTML; }
+
+let toastTimer = null;
+function toast(msg){
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove("show"), 2600);
+}
+
+/* ── IndexedDB ─────────────────────── */
+function openDB(){
+  return new Promise((res, rej)=>{
+    const r = indexedDB.open("hankki", 1);
+    r.onupgradeneeded = e => {
+      const d = e.target.result;
+      const m = d.createObjectStore("meals", { keyPath: "id" });
+      m.createIndex("date", "date");
+      d.createObjectStore("weights", { keyPath: "date" });
+      d.createObjectStore("meta", { keyPath: "k" });
+    };
+    r.onsuccess = ()=>res(r.result);
+    r.onerror = ()=>rej(r.error);
+  });
+}
+function store(name, mode){ return idb.transaction(name, mode||"readonly").objectStore(name); }
+function reqP(req){ return new Promise((res, rej)=>{ req.onsuccess = ()=>res(req.result); req.onerror = ()=>rej(req.error); }); }
+const getMeta = k => reqP(store("meta").get(k));
+const setMeta = v => reqP(store("meta","readwrite").put(v));
+
+async function loadDay(){
+  const rows = await reqP(store("meals").index("date").getAll(state.date));
+  rows.sort((a,b)=>a.ts-b.ts);
+  state.entries = rows;
+  state.dayWeight = (await reqP(store("weights").get(state.date)))?.kg ?? null;
+}
+async function loadWeek(){
+  state.dayCounts = {};
+  for(const ds of weekOf(state.date)){
+    state.dayCounts[ds] = await reqP(store("meals").index("date").count(ds));
+  }
+}
+async function loadMonthWeights(){
+  const rows = await reqP(store("weights").getAll(IDBKeyRange.bound(state.month+"-01", state.month+"-31")));
+  state.weights = {};
+  for(const r of rows) if(typeof r.kg === "number") state.weights[r.date] = r.kg;
+}
+async function loadLatestWeight(){
+  state.latestW = await new Promise((res, rej)=>{
+    const c = store("weights").openCursor(null, "prev");
+    c.onsuccess = ()=>res(c.result ? c.result.value : null);
+    c.onerror = ()=>rej(c.error);
+  });
+}
+async function refreshMeal(){ await loadDay(); await loadWeek(); renderHeader(); renderWeek(); renderTimeline(); }
+async function refreshWeight(){ await loadMonthWeights(); await loadLatestWeight(); renderWeightView(); }
+
+/* ── 렌더링 ─────────────────────────── */
+function renderHeader(){
+  $("curDate").textContent = fmtDate(state.date);
+  $("curRel").textContent = relLabel(state.date);
+}
+function renderWeek(){
+  const wrap = $("week"); wrap.innerHTML = "";
+  const today = todayStr();
+  for(const ds of weekOf(state.date)){
+    const d = strToDate(ds);
+    const b = document.createElement("button");
+    b.className = "day"+(ds===state.date?" sel":"")+(ds===today?" today":"")+(state.dayCounts[ds]>0?" has":"");
+    b.innerHTML = '<span class="wd">'+WD[d.getDay()]+'</span><span class="num">'+d.getDate()+'</span><span class="dot"></span>';
+    b.addEventListener("click", ()=>selectDate(ds));
+    wrap.appendChild(b);
+  }
+}
+function renderTimeline(){
+  const tl = $("timeline"); tl.innerHTML = "";
+  const wtxt = state.dayWeight != null ? " 몸무게 <b>"+state.dayWeight.toFixed(1)+"kg</b>" : "";
+  if(state.entries.length === 0){
+    tl.innerHTML = '<div class="empty"><div class="big">🥗</div>아직 기록이 없어요.<br>먹은 것을 사진으로 남겨보세요.</div>';
+    $("summary").innerHTML = wtxt ? "이날"+wtxt : "";
+    return;
+  }
+  $("summary").innerHTML = "이날 <b>"+state.entries.length+"끼</b>를 기록했어요."+(wtxt?" ·"+wtxt:"");
+  for(const e of state.entries){
+    const card = document.createElement("div"); card.className = "card";
+    if(e.photo){
+      const img = document.createElement("img");
+      img.className = "photo"; img.src = e.photo; img.alt = e.slot+" 사진"; img.loading = "lazy";
+      img.addEventListener("click", ()=>openLightbox(e.photo));
+      card.appendChild(img);
+    }
+    const body = document.createElement("div"); body.className = "body";
+    const row = document.createElement("div"); row.className = "row1";
+    row.innerHTML = '<span class="slot-chip">'+esc(e.slot||"기록")+'</span><span class="time">'+fmtTime(e.ts)+'</span>';
+    if(state.confirmDel === e.id){
+      const c = document.createElement("span"); c.className = "confirm";
+      c.innerHTML = '삭제할까요? <button class="yes">삭제</button><button class="no">취소</button>';
+      c.querySelector(".yes").addEventListener("click", ()=>deleteEntry(e.id));
+      c.querySelector(".no").addEventListener("click", ()=>{ state.confirmDel = null; renderTimeline(); });
+      row.appendChild(c);
+    }else{
+      const del = document.createElement("button"); del.className = "del"; del.textContent = "삭제";
+      del.addEventListener("click", ()=>{ state.confirmDel = e.id; renderTimeline(); });
+      row.appendChild(del);
+    }
+    body.appendChild(row);
+    if(e.memo){ const m = document.createElement("p"); m.className = "memo"; m.textContent = e.memo; body.appendChild(m); }
+    card.appendChild(body);
+    tl.appendChild(card);
+  }
+}
+function renderWeightView(){
+  $("curMonth").textContent = fmtMonth(state.month);
+  renderCalendar(); updateWStats();
+}
+function renderCalendar(){
+  const cal = $("cal"); cal.innerHTML = "";
+  const grid = document.createElement("div"); grid.className = "grid";
+  for(const w of WD){ const h = document.createElement("div"); h.className = "wdh"; h.textContent = w; grid.appendChild(h); }
+  const [y,mo] = state.month.split("-").map(Number);
+  const firstDow = new Date(y,mo-1,1).getDay();
+  const days = new Date(y,mo,0).getDate();
+  const today = todayStr();
+  for(let i=0;i<firstDow;i++){ const b = document.createElement("button"); b.className = "cell blank"; b.disabled = true; grid.appendChild(b); }
+  for(let d=1; d<=days; d++){
+    const ds = state.month+"-"+String(d).padStart(2,"0");
+    const kg = state.weights[ds];
+    const b = document.createElement("button");
+    b.className = "cell"+(kg!=null?" has":"")+(ds===today?" today":"");
+    b.disabled = ds > today;
+    b.innerHTML = '<span class="d">'+d+'</span>'+(kg!=null?'<span class="kg">'+kg.toFixed(1)+'</span>':'');
+    if(!b.disabled) b.addEventListener("click", ()=>openWeightSheet(ds));
+    grid.appendChild(b);
+  }
+  cal.appendChild(grid);
+}
+function updateWStats(){
+  const L = $("wLatest"), D = $("wDelta");
+  if(state.latestW){
+    const d = strToDate(state.latestW.date);
+    L.innerHTML = state.latestW.kg.toFixed(1)+'<small>kg · '+(d.getMonth()+1)+'/'+d.getDate()+'</small>';
+  }else L.textContent = "—";
+  const ds = Object.keys(state.weights).sort();
+  if(ds.length >= 2){
+    const diff = state.weights[ds[ds.length-1]] - state.weights[ds[0]];
+    D.innerHTML = (diff>0?"+":"")+diff.toFixed(1)+'<small>kg</small>';
+  }else D.textContent = "—";
+}
+
+/* ── 뷰 전환·이동 ───────────────────── */
+function switchView(v){
+  state.view = v;
+  $("mealView").hidden = v !== "meal";
+  $("weightView").hidden = v !== "weight";
+  $("fab").hidden = v !== "meal";
+  $("tabMeal").classList.toggle("on", v==="meal");
+  $("tabWeight").classList.toggle("on", v==="weight");
+  $("tabMeal").setAttribute("aria-selected", v==="meal");
+  $("tabWeight").setAttribute("aria-selected", v==="weight");
+}
+function selectDate(ds){ state.date = ds; state.confirmDel = null; refreshMeal(); }
+function selectMonth(m){ state.month = m; refreshWeight(); }
+
+/* ── 사진 압축 ──────────────────────── */
+async function loadBitmap(file){
+  try{ return await createImageBitmap(file, { imageOrientation: "from-image" }); }
+  catch(_){
+    return new Promise((res, rej)=>{
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = ()=>{ URL.revokeObjectURL(url); res(img); };
+      img.onerror = ()=>{ URL.revokeObjectURL(url); rej(new Error("이미지를 읽을 수 없어요")); };
+      img.src = url;
+    });
+  }
+}
+async function compressPhoto(file){
+  const bmp = await loadBitmap(file);
+  const bw = bmp.width || bmp.naturalWidth, bh = bmp.height || bmp.naturalHeight;
+  let maxDim = 900, q = 0.68, out = null;
+  for(let i=0; i<5; i++){
+    const scale = Math.min(1, maxDim/Math.max(bw,bh));
+    const w = Math.max(1, Math.round(bw*scale)), h = Math.max(1, Math.round(bh*scale));
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    c.getContext("2d").drawImage(bmp, 0, 0, w, h);
+    out = c.toDataURL("image/jpeg", q);
+    if(out.length < 350000) break;
+    maxDim = Math.round(maxDim*0.8); q = Math.max(0.45, q-0.08);
+  }
+  return out;
+}
+
+/* ── 시트 열고 닫기 ─────────────────── */
+function openBackdrop(sheetId){
+  $("backdrop").hidden = false;
+  requestAnimationFrame(()=>{ $("backdrop").classList.add("open"); $(sheetId).classList.add("open"); });
+}
+function closeSheet(){
+  $("backdrop").classList.remove("open");
+  for(const id of ["sheet","wSheet","setSheet"]) $(id).classList.remove("open");
+  setTimeout(()=>{ $("backdrop").hidden = true; }, 250);
+  state.wipeArmed = false; $("wipeLabel").textContent = "모든 기록 삭제";
+}
+
+/* ── 식사 기록 ──────────────────────── */
+function openSheet(){
+  state.photo = null; state.slot = guessSlot();
+  $("memo").value = "";
+  $("previewWrap").style.display = "none";
+  $("pickLabel").style.display = "block";
+  updateSlotButtons(); updateSaveBtn();
+  openBackdrop("sheet");
+}
+function updateSlotButtons(){
+  for(const b of $("slots").querySelectorAll("button")) b.classList.toggle("on", b.dataset.slot === state.slot);
+}
+function updateSaveBtn(){
+  const hasContent = !!state.photo || $("memo").value.trim().length > 0;
+  $("saveBtn").disabled = !hasContent || state.saving;
+  $("saveBtn").textContent = state.saving ? "저장 중…" : "저장";
+}
+async function onPhotoPicked(file){
+  if(!file) return;
+  try{
+    toast("사진 정리 중…");
+    state.photo = await compressPhoto(file);
+    $("preview").src = state.photo;
+    $("previewWrap").style.display = "block";
+    $("pickLabel").style.display = "none";
+  }catch(e){ toast(e.message || "사진을 처리하지 못했어요"); state.photo = null; }
+  updateSaveBtn();
+}
+async function saveEntry(){
+  const memoVal = $("memo").value.trim();
+  if((!state.photo && !memoVal) || state.saving) return;
+  state.saving = true; updateSaveBtn();
+  try{
+    const id = Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+    await reqP(store("meals","readwrite").put({
+      id, date: state.date, ts: Date.now(), slot: state.slot,
+      memo: memoVal, photo: state.photo || null,
+    }));
+    closeSheet(); toast("한 끼 기록 완료 🍽️");
+    await refreshMeal();
+  }catch(e){ toast("저장하지 못했어요 — 저장 공간이 부족할 수 있어요"); }
+  state.saving = false; updateSaveBtn();
+}
+async function deleteEntry(id){
+  state.confirmDel = null;
+  try{ await reqP(store("meals","readwrite").delete(id)); toast("삭제했어요"); await refreshMeal(); }
+  catch(e){ toast("삭제하지 못했어요"); }
+}
+
+/* ── 몸무게 ─────────────────────────── */
+function openWeightSheet(ds){
+  state.wDate = ds;
+  const rel = relLabel(ds);
+  $("wSheetDate").textContent = fmtDate(ds)+(rel?" · "+rel:"");
+  const cur = state.weights[ds];
+  $("wInput").value = cur != null ? cur.toFixed(1) : "";
+  $("wDelBtn").hidden = cur == null;
+  openBackdrop("wSheet");
+  setTimeout(()=>$("wInput").focus(), 280);
+}
+async function saveWeight(){
+  if(!state.wDate) return;
+  const v = parseFloat($("wInput").value.replace(",", "."));
+  if(!(v >= 20 && v <= 300)){ toast("20~300 사이 숫자로 입력해주세요"); return; }
+  const kg = Math.round(v*10)/10;
+  try{
+    await reqP(store("weights","readwrite").put({ date: state.wDate, kg, ts: Date.now() }));
+    closeSheet(); toast("몸무게 기록 완료 ⚖️");
+    await refreshWeight(); if(state.wDate === state.date) await refreshMeal();
+  }catch(e){ toast("저장하지 못했어요"); }
+}
+async function deleteWeight(){
+  if(!state.wDate) return;
+  try{
+    await reqP(store("weights","readwrite").delete(state.wDate));
+    closeSheet(); toast("삭제했어요");
+    await refreshWeight(); if(state.wDate === state.date) await refreshMeal();
+  }catch(e){ toast("삭제하지 못했어요"); }
+}
+
+/* ── PIN ────────────────────────────── */
+async function hashPin(pin, salt){
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(salt+":"+pin));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+function showLock(mode, msg){
+  state.pinMode = mode;
+  $("lock").hidden = false; $("appRoot").hidden = true; $("fab").hidden = true;
+  $("lockMsg").textContent = msg;
+  $("pinErr").textContent = "";
+  $("pinInput").value = "";
+  $("pinForgot").hidden = mode !== "unlock";
+  setTimeout(()=>$("pinInput").focus(), 100);
+}
+async function enterApp(){
+  state.pinMode = null;
+  $("lock").hidden = true; $("appRoot").hidden = false;
+  switchView(state.view);
+  await refreshMeal(); await refreshWeight();
+  const pin = await getMeta("pin");
+  $("setPinLabel").textContent = pin ? "PIN 변경" : "PIN 설정";
+}
+async function onPinGo(){
+  const val = $("pinInput").value.trim();
+  if(state.pinMode === "setup1"){
+    if(!/^\d{4,8}$/.test(val)){ $("pinErr").textContent = "숫자 4~8자리로 정해주세요"; return; }
+    state.pinTemp = val;
+    showLock("setup2", "확인을 위해 한 번 더 입력해주세요");
+    return;
+  }
+  if(state.pinMode === "setup2"){
+    if(val !== state.pinTemp){ showLock("setup1", "두 입력이 달라요. 처음부터 다시 정해주세요"); return; }
+    const salt = Math.random().toString(36).slice(2,12);
+    await setMeta({ k: "pin", salt, hash: await hashPin(val, salt) });
+    state.pinTemp = null;
+    toast("PIN 설정 완료 🔒");
+    await enterApp();
+    return;
+  }
+  // unlock
+  const rec = await getMeta("pin");
+  if(rec && await hashPin(val, rec.salt) === rec.hash){ await enterApp(); }
+  else { $("pinErr").textContent = "PIN이 맞지 않아요"; $("pinInput").value = ""; }
+}
+async function onPinForgot(){
+  if($("pinForgot").textContent.includes("잊었어요")){
+    $("pinForgot").textContent = "⚠️ 초기화하면 모든 기록이 삭제됩니다 — 한 번 더 누르면 진행";
+    return;
+  }
+  await wipeAll();
+  showLock("setup1", "새 PIN을 정해주세요 (숫자 4~8자리)");
+  $("pinForgot").textContent = "PIN을 잊었어요";
+  $("pinForgot").hidden = true;
+}
+async function wipeAll(){
+  await reqP(store("meals","readwrite").clear());
+  await reqP(store("weights","readwrite").clear());
+  await reqP(store("meta","readwrite").clear());
+  state.entries = []; state.weights = {}; state.dayCounts = {}; state.latestW = null; state.dayWeight = null;
+}
+
+/* ── 백업 ───────────────────────────── */
+async function exportBackup(){
+  const meals = await reqP(store("meals").getAll());
+  const weights = await reqP(store("weights").getAll());
+  const json = JSON.stringify({ app: "hankki-pocket", v: 1, exportedAt: new Date().toISOString(), meals, weights });
+  const filename = "hankki-backup-"+todayStr()+".json";
+  try{
+    const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    const a = document.createElement("a"); a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    toast("백업 파일을 저장했어요"); return;
+  }catch(_){ }
+  try{ await navigator.clipboard.writeText(json); toast("클립보드에 복사했어요 — 메모 앱에 붙여넣어 보관하세요"); }
+  catch(_){ toast("백업을 내보내지 못했어요"); }
+}
+async function importBackup(file){
+  if(!file) return;
+  try{
+    const data = JSON.parse(await file.text());
+    if(data.app !== "hankki-pocket" || !Array.isArray(data.meals)) throw new Error("bad");
+    await new Promise((res, rej)=>{
+      const t = idb.transaction(["meals","weights"], "readwrite");
+      const ms = t.objectStore("meals"), ws = t.objectStore("weights");
+      for(const m of data.meals) if(m && m.id) ms.put(m);
+      for(const w of (data.weights||[])) if(w && w.date && typeof w.kg === "number") ws.put(w);
+      t.oncomplete = res; t.onerror = ()=>rej(t.error); t.onabort = ()=>rej(t.error);
+    });
+    toast("백업 "+data.meals.length+"건을 가져왔어요");
+    closeSheet(); await refreshMeal(); await refreshWeight();
+  }catch(_){ toast("백업 파일을 읽지 못했어요 — 한끼로그 백업 파일이 맞는지 확인해주세요"); }
+}
+
+/* ── 이벤트 연결 ────────────────────── */
+$("prevDay").addEventListener("click", ()=>selectDate(shiftDate(state.date,-1)));
+$("nextDay").addEventListener("click", ()=>selectDate(shiftDate(state.date, 1)));
+$("tabMeal").addEventListener("click", ()=>switchView("meal"));
+$("tabWeight").addEventListener("click", ()=>switchView("weight"));
+$("prevMonth").addEventListener("click", ()=>selectMonth(shiftMonth(state.month,-1)));
+$("nextMonth").addEventListener("click", ()=>selectMonth(shiftMonth(state.month, 1)));
+$("fab").addEventListener("click", openSheet);
+$("backdrop").addEventListener("click", closeSheet);
+$("photoInput").addEventListener("change", e=>{ onPhotoPicked(e.target.files[0]); e.target.value = ""; });
+$("memo").addEventListener("input", updateSaveBtn);
+$("rechoose").addEventListener("click", ()=>$("photoInput").click());
+$("slots").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-slot]");
+  if(b){ state.slot = b.dataset.slot; updateSlotButtons(); }
+});
+$("saveBtn").addEventListener("click", saveEntry);
+$("wSaveBtn").addEventListener("click", saveWeight);
+$("wDelBtn").addEventListener("click", deleteWeight);
+$("wInput").addEventListener("keydown", e=>{ if(e.key === "Enter") saveWeight(); });
+$("pinGo").addEventListener("click", onPinGo);
+$("pinInput").addEventListener("keydown", e=>{ if(e.key === "Enter") onPinGo(); });
+$("pinForgot").addEventListener("click", onPinForgot);
+$("gearBtn").addEventListener("click", ()=>openBackdrop("setSheet"));
+$("setPin").addEventListener("click", ()=>{ closeSheet(); showLock("setup1", "새 PIN을 정해주세요 (숫자 4~8자리)"); });
+$("setExport").addEventListener("click", exportBackup);
+$("setImport").addEventListener("click", ()=>$("importInput").click());
+$("importInput").addEventListener("change", e=>{ importBackup(e.target.files[0]); e.target.value = ""; });
+$("setWipe").addEventListener("click", async ()=>{
+  if(!state.wipeArmed){ state.wipeArmed = true; $("wipeLabel").textContent = "⚠️ 정말 삭제할까요? 한 번 더 누르면 전부 지워집니다"; return; }
+  const pin = await getMeta("pin");
+  await wipeAll();
+  if(pin) await setMeta(pin); // PIN은 유지
+  closeSheet(); toast("모든 기록을 삭제했어요");
+  await refreshMeal(); await refreshWeight();
+});
+$("lightbox").addEventListener("click", ()=>{ $("lightbox").style.display = "none"; });
+document.addEventListener("keydown", e=>{
+  if(e.key === "Escape"){ closeSheet(); $("lightbox").style.display = "none"; }
+});
+function openLightbox(src){ $("lightboxImg").src = src; $("lightbox").style.display = "flex"; }
+
+/* ── 시작 ───────────────────────────── */
+(async function init(){
+  try{ idb = await openDB(); }
+  catch(_){
+    document.body.innerHTML = '<div class="empty" style="padding-top:40vh">이 브라우저에서는 저장소를 쓸 수 없어요.<br>일반 모드(시크릿 모드 아님)로 열어주세요.</div>';
+    return;
+  }
+  // 영구 저장 요청(브라우저가 임의로 데이터를 지우지 않도록)
+  if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(()=>{}); }
+  const pin = await getMeta("pin");
+  if(pin) showLock("unlock", "PIN을 입력해주세요");
+  else showLock("setup1", "처음이시네요! 잠금용 PIN을 정해주세요 (숫자 4~8자리)");
+})();
+</script>
+
+<script>
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
