@@ -54,7 +54,7 @@
   .brand h1{margin:0; font-size:1.5rem; letter-spacing:-.02em}
   .brand .tag{color:var(--muted); font-size:.9rem}
   .brand .gear{margin-left:auto; font-size:1.15rem; color:var(--muted); padding:4px}
-  .tabs{display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:14px; background:var(--card); border-radius:12px; padding:4px; box-shadow:var(--shadow)}
+  .tabs{display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin-top:14px; background:var(--card); border-radius:12px; padding:4px; box-shadow:var(--shadow)}
   .tabs button{padding:8px 0; border-radius:9px; font-weight:700; color:var(--muted)}
   .tabs button.on{background:var(--accent); color:#fff}
   .datebar{display:flex; align-items:center; justify-content:space-between; margin-top:14px; padding:0 18px}
@@ -145,6 +145,7 @@
   .cal .cell .d{font-size:.85rem; color:var(--muted); font-variant-numeric:tabular-nums}
   .cal .cell.today .d{color:var(--accent-deep); font-weight:700; text-decoration:underline; text-underline-offset:3px}
   .cal .cell .kg{font-size:.92rem; font-weight:700; color:var(--accent-deep); font-variant-numeric:tabular-nums}
+  .cal .cell .em{font-size:1.1rem; line-height:1.2}
   .cal .cell.has{background:var(--accent-soft)}
   .whint{text-align:center; color:var(--muted); font-size:.88rem; padding:14px}
   .wsheet-date{color:var(--muted); margin:0 0 10px}
@@ -210,6 +211,7 @@
     <div class="tabs" role="tablist">
       <button id="tabMeal" class="on" role="tab" aria-selected="true">🍽️ 식사</button>
       <button id="tabWeight" role="tab" aria-selected="false">⚖️ 몸무게</button>
+      <button id="tabPoop" role="tab" aria-selected="false">💩 화장실</button>
     </div>
   </header>
 
@@ -236,6 +238,20 @@
     </div>
     <div class="cal" id="cal"></div>
     <div class="whint">날짜를 누르면 몸무게를 기록할 수 있어요.</div>
+  </section>
+
+  <section id="poopView" hidden>
+    <div class="monthbar">
+      <button class="nav-btn" id="pPrevMonth" aria-label="이전 달">◀</button>
+      <div class="cur" id="pCurMonth"></div>
+      <button class="nav-btn" id="pNextMonth" aria-label="다음 달">▶</button>
+    </div>
+    <div class="wstats">
+      <div class="wstat"><div class="lbl">이번 달 갔음 💩</div><div class="val" id="pYes">—</div></div>
+      <div class="wstat"><div class="lbl">이번 달 못 갔음 🚽</div><div class="val" id="pNo">—</div></div>
+    </div>
+    <div class="cal" id="pcal"></div>
+    <div class="whint">날짜를 누를 때마다 💩 갔음 → 🚽 못 갔음 → 지우기 순서로 바뀌어요.</div>
   </section>
 </div>
 
@@ -461,6 +477,57 @@ function renderTimeline(){
 function renderWeightView(){
   $("curMonth").textContent = fmtMonth(state.month);
   renderCalendar(); updateWStats();
+  renderPoopView();
+}
+function renderPoopView(){
+  $("pCurMonth").textContent = fmtMonth(state.month);
+  renderPoopCal();
+  let yes = 0, no = 0;
+  for(const k in state.weights){
+    if(state.weights[k].poop === true) yes++;
+    else if(state.weights[k].poop === false) no++;
+  }
+  $("pYes").innerHTML = yes ? yes+'<small>일</small>' : "—";
+  $("pNo").innerHTML = no ? no+'<small>일</small>' : "—";
+}
+function renderPoopCal(){
+  const cal = $("pcal"); cal.innerHTML = "";
+  const grid = document.createElement("div"); grid.className = "grid";
+  for(const w of WD){ const h = document.createElement("div"); h.className = "wdh"; h.textContent = w; grid.appendChild(h); }
+  const [y,mo] = state.month.split("-").map(Number);
+  const firstDow = new Date(y,mo-1,1).getDay();
+  const days = new Date(y,mo,0).getDate();
+  const today = todayStr();
+  for(let i=0;i<firstDow;i++){ const b = document.createElement("button"); b.className = "cell blank"; b.disabled = true; grid.appendChild(b); }
+  for(let d=1; d<=days; d++){
+    const ds = state.month+"-"+String(d).padStart(2,"0");
+    const rec = state.weights[ds];
+    const p = rec && rec.poop != null ? rec.poop : null;
+    const b = document.createElement("button");
+    b.className = "cell"+(p===true?" has":"")+(ds===today?" today":"");
+    b.disabled = ds > today;
+    b.innerHTML = '<span class="d">'+d+'</span>'+(p===true?'<span class="em">💩</span>':p===false?'<span class="em">🚽</span>':'');
+    if(!b.disabled) b.addEventListener("click", ()=>cyclePoop(ds));
+    grid.appendChild(b);
+  }
+  cal.appendChild(grid);
+}
+async function cyclePoop(ds){
+  const rec = state.weights[ds];
+  const cur = rec && rec.poop != null ? rec.poop : null;
+  const next = cur === null ? true : cur === true ? false : null;
+  try{
+    if(next === null && (!rec || rec.kg == null)){
+      await reqP(store("weights","readwrite").delete(ds));
+    }else{
+      const body = { date: ds, ts: Date.now() };
+      if(rec && rec.kg != null) body.kg = rec.kg;
+      if(next != null) body.poop = next;
+      await reqP(store("weights","readwrite").put(body));
+    }
+    await refreshWeight();
+    if(ds === state.date) await refreshMeal();
+  }catch(e){ toast("저장하지 못했어요"); }
 }
 function renderCalendar(){
   const cal = $("cal"); cal.innerHTML = "";
@@ -507,11 +574,13 @@ function switchView(v){
   state.view = v;
   $("mealView").hidden = v !== "meal";
   $("weightView").hidden = v !== "weight";
+  $("poopView").hidden = v !== "poop";
   $("fab").hidden = v !== "meal";
-  $("tabMeal").classList.toggle("on", v==="meal");
-  $("tabWeight").classList.toggle("on", v==="weight");
-  $("tabMeal").setAttribute("aria-selected", v==="meal");
-  $("tabWeight").setAttribute("aria-selected", v==="weight");
+  const tabs = { meal: "tabMeal", weight: "tabWeight", poop: "tabPoop" };
+  for(const k in tabs){
+    $(tabs[k]).classList.toggle("on", v === k);
+    $(tabs[k]).setAttribute("aria-selected", v === k);
+  }
 }
 function selectDate(ds){ state.date = ds; state.confirmDel = null; refreshMeal(); }
 function selectMonth(m){ state.month = m; refreshWeight(); }
@@ -775,8 +844,11 @@ $("prevDay").addEventListener("click", ()=>selectDate(shiftDate(state.date,-1)))
 $("nextDay").addEventListener("click", ()=>selectDate(shiftDate(state.date, 1)));
 $("tabMeal").addEventListener("click", ()=>switchView("meal"));
 $("tabWeight").addEventListener("click", ()=>switchView("weight"));
+$("tabPoop").addEventListener("click", ()=>switchView("poop"));
 $("prevMonth").addEventListener("click", ()=>selectMonth(shiftMonth(state.month,-1)));
 $("nextMonth").addEventListener("click", ()=>selectMonth(shiftMonth(state.month, 1)));
+$("pPrevMonth").addEventListener("click", ()=>selectMonth(shiftMonth(state.month,-1)));
+$("pNextMonth").addEventListener("click", ()=>selectMonth(shiftMonth(state.month, 1)));
 $("fab").addEventListener("click", openSheet);
 $("backdrop").addEventListener("click", closeSheet);
 $("photoInput").addEventListener("change", e=>{ onPhotoPicked(e.target.files[0]); e.target.value = ""; });
