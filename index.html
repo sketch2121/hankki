@@ -148,6 +148,11 @@
   .cal .cell.has{background:var(--accent-soft)}
   .whint{text-align:center; color:var(--muted); font-size:.88rem; padding:14px}
   .wsheet-date{color:var(--muted); margin:0 0 10px}
+  .pooprow{display:flex; align-items:center; gap:12px; margin-top:14px}
+  .pooprow .plbl{font-weight:700; color:var(--muted); white-space:nowrap}
+  .poopbtns{display:grid; grid-template-columns:1fr 1fr; gap:8px; flex:1}
+  .poopbtns button{padding:9px 0; border-radius:10px; background:var(--bg); color:var(--muted); font-weight:700; border:1px solid var(--line)}
+  .poopbtns button.on{background:var(--accent); border-color:var(--accent); color:#fff}
   .winput{display:flex; align-items:center; gap:10px}
   .winput input{flex:1; min-width:0; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink);
     padding:12px; font-family:inherit; font-size:1.3rem; font-weight:700; text-align:right; font-variant-numeric:tabular-nums}
@@ -267,6 +272,13 @@
     <input id="wInput" type="text" inputmode="decimal" placeholder="72.5" maxlength="6" aria-label="몸무게(킬로그램)">
     <span class="unit">kg</span>
   </div>
+  <div class="pooprow">
+    <span class="plbl">화장실</span>
+    <div class="poopbtns" id="poopBtns">
+      <button data-poop="yes">💩 갔음</button>
+      <button data-poop="no">🚽 못 갔음</button>
+    </div>
+  </div>
   <button class="save" id="wSaveBtn">저장</button>
   <button class="wdel" id="wDelBtn" hidden>기록 삭제</button>
 </div>
@@ -295,7 +307,7 @@ const state = {
   date: todayStr(), entries: [], dayCounts: {},
   photo: null, slot: null, saving: false, confirmDel: null,
   view: "meal", month: todayStr().slice(0,7), weights: {}, latestW: null,
-  wDate: null, dayWeight: null, editId: null,
+  wDate: null, dayWeight: null, dayPoop: null, poopSel: null, editId: null,
   pinMode: null,   // "unlock" | "setup1" | "setup2" | null
   pinTemp: null, wipeArmed: false,
 };
@@ -353,7 +365,9 @@ async function loadDay(){
   const rows = await reqP(store("meals").index("date").getAll(state.date));
   rows.sort((a,b)=>a.ts-b.ts);
   state.entries = rows;
-  state.dayWeight = (await reqP(store("weights").get(state.date)))?.kg ?? null;
+  const w = await reqP(store("weights").get(state.date));
+  state.dayWeight = typeof w?.kg === "number" ? w.kg : null;
+  state.dayPoop = typeof w?.poop === "boolean" ? w.poop : null;
 }
 async function loadWeek(){
   state.dayCounts = {};
@@ -364,12 +378,20 @@ async function loadWeek(){
 async function loadMonthWeights(){
   const rows = await reqP(store("weights").getAll(IDBKeyRange.bound(state.month+"-01", state.month+"-31")));
   state.weights = {};
-  for(const r of rows) if(typeof r.kg === "number") state.weights[r.date] = r.kg;
+  for(const r of rows) state.weights[r.date] = {
+    kg: typeof r.kg === "number" ? r.kg : null,
+    poop: typeof r.poop === "boolean" ? r.poop : null,
+  };
 }
 async function loadLatestWeight(){
   state.latestW = await new Promise((res, rej)=>{
     const c = store("weights").openCursor(null, "prev");
-    c.onsuccess = ()=>res(c.result ? c.result.value : null);
+    c.onsuccess = ()=>{
+      const cur = c.result;
+      if(!cur) return res(null);
+      if(typeof cur.value.kg === "number") return res(cur.value);
+      cur.continue();
+    };
     c.onerror = ()=>rej(c.error);
   });
 }
@@ -395,7 +417,9 @@ function renderWeek(){
 }
 function renderTimeline(){
   const tl = $("timeline"); tl.innerHTML = "";
-  const wtxt = state.dayWeight != null ? " 몸무게 <b>"+state.dayWeight.toFixed(1)+"kg</b>" : "";
+  let wtxt = state.dayWeight != null ? " 몸무게 <b>"+state.dayWeight.toFixed(1)+"kg</b>" : "";
+  if(state.dayPoop === true) wtxt += (wtxt?" ·":"") + " 화장실 💩";
+  else if(state.dayPoop === false) wtxt += (wtxt?" ·":"") + " 화장실 🚽 아직";
   if(state.entries.length === 0){
     tl.innerHTML = '<div class="empty"><div class="big">🥗</div>아직 기록이 없어요.<br>먹은 것을 사진으로 남겨보세요.</div>';
     $("summary").innerHTML = wtxt ? "이날"+wtxt : "";
@@ -449,11 +473,17 @@ function renderCalendar(){
   for(let i=0;i<firstDow;i++){ const b = document.createElement("button"); b.className = "cell blank"; b.disabled = true; grid.appendChild(b); }
   for(let d=1; d<=days; d++){
     const ds = state.month+"-"+String(d).padStart(2,"0");
-    const kg = state.weights[ds];
+    const rec = state.weights[ds];
+    const kg = rec && rec.kg != null ? rec.kg : null;
+    const poop = rec && rec.poop === true;
     const b = document.createElement("button");
-    b.className = "cell"+(kg!=null?" has":"")+(ds===today?" today":"");
+    b.className = "cell"+(rec?" has":"")+(ds===today?" today":"");
     b.disabled = ds > today;
-    b.innerHTML = '<span class="d">'+d+'</span>'+(kg!=null?'<span class="kg">'+kg.toFixed(1)+'</span>':'');
+    let line2 = "";
+    if(kg != null || poop){
+      line2 = '<span class="kg">'+(kg!=null?kg.toFixed(1):"")+(poop?(kg!=null?" ":"")+"💩":"")+'</span>';
+    }
+    b.innerHTML = '<span class="d">'+d+'</span>'+line2;
     if(!b.disabled) b.addEventListener("click", ()=>openWeightSheet(ds));
     grid.appendChild(b);
   }
@@ -465,9 +495,9 @@ function updateWStats(){
     const d = strToDate(state.latestW.date);
     L.innerHTML = state.latestW.kg.toFixed(1)+'<small>kg · '+(d.getMonth()+1)+'/'+d.getDate()+'</small>';
   }else L.textContent = "—";
-  const ds = Object.keys(state.weights).sort();
+  const ds = Object.keys(state.weights).filter(k => state.weights[k].kg != null).sort();
   if(ds.length >= 2){
-    const diff = state.weights[ds[ds.length-1]] - state.weights[ds[0]];
+    const diff = state.weights[ds[ds.length-1]].kg - state.weights[ds[0]].kg;
     D.innerHTML = (diff>0?"+":"")+diff.toFixed(1)+'<small>kg</small>';
   }else D.textContent = "—";
 }
@@ -600,24 +630,40 @@ async function deleteEntry(id){
 }
 
 /* ── 몸무게 ─────────────────────────── */
+function updatePoopBtns(){
+  for(const b of $("poopBtns").querySelectorAll("button")){
+    const val = b.dataset.poop === "yes";
+    b.classList.toggle("on", state.poopSel === val);
+  }
+}
 function openWeightSheet(ds){
   state.wDate = ds;
   const rel = relLabel(ds);
   $("wSheetDate").textContent = fmtDate(ds)+(rel?" · "+rel:"");
-  const cur = state.weights[ds];
-  $("wInput").value = cur != null ? cur.toFixed(1) : "";
-  $("wDelBtn").hidden = cur == null;
+  const rec = state.weights[ds];
+  $("wInput").value = rec && rec.kg != null ? rec.kg.toFixed(1) : "";
+  state.poopSel = rec && rec.poop != null ? rec.poop : null;
+  updatePoopBtns();
+  $("wDelBtn").hidden = !rec;
   openBackdrop("wSheet");
   setTimeout(()=>$("wInput").focus(), 280);
 }
 async function saveWeight(){
   if(!state.wDate) return;
-  const v = parseFloat($("wInput").value.replace(",", "."));
-  if(!(v >= 20 && v <= 300)){ toast("20~300 사이 숫자로 입력해주세요"); return; }
-  const kg = Math.round(v*10)/10;
+  const raw = $("wInput").value.trim();
+  let kg = null;
+  if(raw !== ""){
+    const v = parseFloat(raw.replace(",", "."));
+    if(!(v >= 20 && v <= 300)){ toast("20~300 사이 숫자로 입력해주세요"); return; }
+    kg = Math.round(v*10)/10;
+  }
+  if(kg == null && state.poopSel == null){ toast("몸무게나 화장실 상태 중 하나는 입력해주세요"); return; }
+  const body = { date: state.wDate, ts: Date.now() };
+  if(kg != null) body.kg = kg;
+  if(state.poopSel != null) body.poop = state.poopSel;
   try{
-    await reqP(store("weights","readwrite").put({ date: state.wDate, kg, ts: Date.now() }));
-    closeSheet(); toast("몸무게 기록 완료 ⚖️");
+    await reqP(store("weights","readwrite").put(body));
+    closeSheet(); toast("기록 완료 ⚖️");
     await refreshWeight(); if(state.wDate === state.date) await refreshMeal();
   }catch(e){ toast("저장하지 못했어요"); }
 }
@@ -716,7 +762,7 @@ async function importBackup(file){
       const t = idb.transaction(["meals","weights"], "readwrite");
       const ms = t.objectStore("meals"), ws = t.objectStore("weights");
       for(const m of data.meals) if(m && m.id) ms.put(m);
-      for(const w of (data.weights||[])) if(w && w.date && typeof w.kg === "number") ws.put(w);
+      for(const w of (data.weights||[])) if(w && w.date) ws.put(w);
       t.oncomplete = res; t.onerror = ()=>rej(t.error); t.onabort = ()=>rej(t.error);
     });
     toast("백업 "+data.meals.length+"건을 가져왔어요");
@@ -749,6 +795,13 @@ $("slots").addEventListener("click", e=>{
 $("saveBtn").addEventListener("click", saveEntry);
 $("wSaveBtn").addEventListener("click", saveWeight);
 $("wDelBtn").addEventListener("click", deleteWeight);
+$("poopBtns").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-poop]");
+  if(!b) return;
+  const val = b.dataset.poop === "yes";
+  state.poopSel = state.poopSel === val ? null : val; // 다시 누르면 해제
+  updatePoopBtns();
+});
 $("wInput").addEventListener("keydown", e=>{ if(e.key === "Enter") saveWeight(); });
 $("pinGo").addEventListener("click", onPinGo);
 $("pinInput").addEventListener("keydown", e=>{ if(e.key === "Enter") onPinGo(); });
