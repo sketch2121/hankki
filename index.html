@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Sol's Meal</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#4C8C5C">
+<meta name="theme-color" content="#7B5FC0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -17,24 +17,24 @@
 <body>
 <style>
   :root{
-    --bg:#F7F6F2; --card:#FFFFFF; --ink:#26302A; --muted:#77816F;
-    --line:#E4E4DB; --accent:#4C8C5C; --accent-deep:#356844;
-    --accent-soft:#E7F0E7; --danger:#B4543E; --shadow:0 2px 10px rgba(38,48,42,.08);
-    --sheet-bg:#FFFFFF; --backdrop:rgba(30,38,32,.45);
+    --bg:#F7F5FA; --card:#FFFFFF; --ink:#2B2733; --muted:#7A7389;
+    --line:#E5E1EC; --accent:#7B5FC0; --accent-deep:#5B4394;
+    --accent-soft:#EEE9F8; --danger:#B4543E; --shadow:0 2px 10px rgba(43,39,51,.08);
+    --sheet-bg:#FFFFFF; --backdrop:rgba(32,28,40,.45);
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
-      --bg:#151A17; --card:#1E2620; --ink:#E8EDE8; --muted:#93A096;
-      --line:#2C362F; --accent:#6FBF85; --accent-deep:#8ED4A2;
-      --accent-soft:#24352A; --danger:#E08A75; --shadow:0 2px 10px rgba(0,0,0,.35);
-      --sheet-bg:#1E2620; --backdrop:rgba(0,0,0,.6);
+      --bg:#17141D; --card:#211D2A; --ink:#EAE7F0; --muted:#9C94AD;
+      --line:#332D40; --accent:#A78BE0; --accent-deep:#C3AFEA;
+      --accent-soft:#2C2539; --danger:#E08A75; --shadow:0 2px 10px rgba(0,0,0,.35);
+      --sheet-bg:#211D2A; --backdrop:rgba(0,0,0,.6);
     }
   }
   :root[data-theme="dark"]{
-    --bg:#151A17; --card:#1E2620; --ink:#E8EDE8; --muted:#93A096;
-    --line:#2C362F; --accent:#6FBF85; --accent-deep:#8ED4A2;
-    --accent-soft:#24352A; --danger:#E08A75; --shadow:0 2px 10px rgba(0,0,0,.35);
-    --sheet-bg:#1E2620; --backdrop:rgba(0,0,0,.6);
+    --bg:#17141D; --card:#211D2A; --ink:#EAE7F0; --muted:#9C94AD;
+    --line:#332D40; --accent:#A78BE0; --accent-deep:#C3AFEA;
+    --accent-soft:#2C2539; --danger:#E08A75; --shadow:0 2px 10px rgba(0,0,0,.35);
+    --sheet-bg:#211D2A; --backdrop:rgba(0,0,0,.6);
   }
   *{box-sizing:border-box}
   html{font-size:10pt}
@@ -97,7 +97,7 @@
 
   .fab{position:fixed; left:50%; transform:translateX(-50%); bottom:22px; z-index:20;
     background:var(--accent); color:#fff; font-weight:700; font-size:1.05rem;
-    padding:13px 30px; border-radius:99px; box-shadow:0 6px 18px rgba(53,104,68,.35)}
+    padding:13px 30px; border-radius:99px; box-shadow:0 6px 18px rgba(91,67,148,.35)}
   .fab:active{transform:translateX(-50%) scale(.96)}
 
   .backdrop{position:fixed; inset:0; background:var(--backdrop); z-index:30; opacity:0; transition:opacity .2s}
