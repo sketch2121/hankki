@@ -1,6 +1,6 @@
 {
-  "name": "한끼로그",
-  "short_name": "한끼로그",
+  "name": "Sol's Meal",
+  "short_name": "Sol's Meal",
   "description": "먹은 만큼만, 사진으로 남기는 식사·몸무게 일기",
   "start_url": ".",
   "scope": ".",

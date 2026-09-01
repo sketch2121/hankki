@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>한끼로그</title>
+<title>Sol's Meal</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4C8C5C">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="한끼로그">
+<meta name="apple-mobile-web-app-title" content="Sol's Meal">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
 <style>[hidden]{display:none!important} img{max-width:100%}</style>
@@ -85,7 +85,8 @@
   .slot-chip{font-size:.85rem; font-weight:700; color:var(--accent-deep); background:var(--accent-soft);
     border-radius:99px; padding:2px 10px}
   .card .time{color:var(--muted); font-size:.85rem; font-variant-numeric:tabular-nums}
-  .card .del{margin-left:auto; color:var(--muted); font-size:.85rem; padding:4px 6px}
+  .card .del{color:var(--muted); font-size:.85rem; padding:4px 6px}
+  .card .act{margin-left:auto; display:flex; gap:2px}
   .card .memo{margin:6px 0 0; white-space:pre-wrap; word-break:break-word}
   .confirm{display:flex; gap:8px; align-items:center; margin-left:auto; font-size:.85rem}
   .confirm .yes{color:var(--danger); font-weight:700; padding:4px 6px}
@@ -117,6 +118,7 @@
   .preview{width:100%; border-radius:14px; display:block; max-height:300px; object-fit:cover}
   .rechoose{position:absolute; right:10px; bottom:10px; background:rgba(0,0,0,.55); color:#fff;
     font-size:.85rem; padding:5px 12px; border-radius:99px}
+  .rechoose.left{left:10px; right:auto}
   .slots{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:14px 0}
   .slots button{padding:9px 0; border-radius:10px; background:var(--bg); color:var(--muted); font-weight:700; border:1px solid var(--line)}
   .slots button.on{background:var(--accent); border-color:var(--accent); color:#fff}
@@ -185,7 +187,7 @@
 <div class="lock" id="lock" hidden>
   <div class="lock-box">
     <div class="logo">🍱</div>
-    <h1>한끼로그 포켓</h1>
+    <h1>Sol's Meal</h1>
     <p id="lockMsg">PIN을 입력해주세요</p>
     <input id="pinInput" type="password" inputmode="numeric" maxlength="8" placeholder="····" aria-label="PIN">
     <button class="go" id="pinGo">열기</button>
@@ -197,7 +199,7 @@
 <div class="app" id="appRoot" hidden>
   <header>
     <div class="brand">
-      <h1>한끼로그</h1><span class="tag">이 폰에만 저장</span>
+      <h1>Sol's Meal</h1><span class="tag">이 폰에만 저장</span>
       <button class="gear" id="gearBtn" aria-label="설정">⚙️</button>
     </div>
     <div class="tabs" role="tablist">
@@ -237,7 +239,7 @@
 <div class="backdrop" id="backdrop" hidden></div>
 
 <div class="sheet" id="sheet" role="dialog" aria-label="식사 기록 추가">
-  <h2>이 한 끼, 남기기</h2>
+  <h2 id="sheetTitle">이 한 끼, 남기기</h2>
   <label class="pick" id="pickLabel">
     <span class="cam">📷</span>사진을 찍거나 골라주세요
     <span class="sub">사진이 없으면 아래에 글만 적고 저장해도 돼요</span>
@@ -246,6 +248,7 @@
   <div class="preview-wrap" id="previewWrap">
     <img class="preview" id="preview" alt="선택한 사진 미리보기">
     <button class="rechoose" id="rechoose">다시 선택</button>
+    <button class="rechoose left" id="removePhoto">사진 빼기</button>
   </div>
   <div class="slots" id="slots">
     <button data-slot="아침">아침</button>
@@ -292,7 +295,7 @@ const state = {
   date: todayStr(), entries: [], dayCounts: {},
   photo: null, slot: null, saving: false, confirmDel: null,
   view: "meal", month: todayStr().slice(0,7), weights: {}, latestW: null,
-  wDate: null, dayWeight: null,
+  wDate: null, dayWeight: null, editId: null,
   pinMode: null,   // "unlock" | "setup1" | "setup2" | null
   pinTemp: null, wipeArmed: false,
 };
@@ -417,9 +420,13 @@ function renderTimeline(){
       c.querySelector(".no").addEventListener("click", ()=>{ state.confirmDel = null; renderTimeline(); });
       row.appendChild(c);
     }else{
+      const act = document.createElement("span"); act.className = "act";
+      const edit = document.createElement("button"); edit.className = "del"; edit.textContent = "수정";
+      edit.addEventListener("click", ()=>openEditSheet(e));
       const del = document.createElement("button"); del.className = "del"; del.textContent = "삭제";
       del.addEventListener("click", ()=>{ state.confirmDel = e.id; renderTimeline(); });
-      row.appendChild(del);
+      act.appendChild(edit); act.appendChild(del);
+      row.appendChild(act);
     }
     body.appendChild(row);
     if(e.memo){ const m = document.createElement("p"); m.className = "memo"; m.textContent = e.memo; body.appendChild(m); }
@@ -522,10 +529,24 @@ function closeSheet(){
 
 /* ── 식사 기록 ──────────────────────── */
 function openSheet(){
-  state.photo = null; state.slot = guessSlot();
+  state.editId = null; state.photo = null; state.slot = guessSlot();
+  $("sheetTitle").textContent = "이 한 끼, 남기기";
   $("memo").value = "";
   $("previewWrap").style.display = "none";
   $("pickLabel").style.display = "block";
+  updateSlotButtons(); updateSaveBtn();
+  openBackdrop("sheet");
+}
+function openEditSheet(e){
+  state.editId = e.id; state.photo = e.photo || null; state.slot = e.slot || guessSlot();
+  $("sheetTitle").textContent = "기록 수정";
+  $("memo").value = e.memo || "";
+  if(state.photo){
+    $("preview").src = state.photo;
+    $("previewWrap").style.display = "block"; $("pickLabel").style.display = "none";
+  }else{
+    $("previewWrap").style.display = "none"; $("pickLabel").style.display = "block";
+  }
   updateSlotButtons(); updateSaveBtn();
   openBackdrop("sheet");
 }
@@ -553,12 +574,21 @@ async function saveEntry(){
   if((!state.photo && !memoVal) || state.saving) return;
   state.saving = true; updateSaveBtn();
   try{
-    const id = Date.now().toString(36)+Math.random().toString(36).slice(2,8);
-    await reqP(store("meals","readwrite").put({
-      id, date: state.date, ts: Date.now(), slot: state.slot,
-      memo: memoVal, photo: state.photo || null,
-    }));
-    closeSheet(); toast("한 끼 기록 완료 🍽️");
+    if(state.editId){
+      const prev = state.entries.find(x => x.id === state.editId) || { id: state.editId, date: state.date, ts: Date.now() };
+      await reqP(store("meals","readwrite").put({
+        ...prev, slot: state.slot, memo: memoVal, photo: state.photo || null,
+      }));
+      state.editId = null;
+      closeSheet(); toast("수정했어요 ✏️");
+    }else{
+      const id = Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+      await reqP(store("meals","readwrite").put({
+        id, date: state.date, ts: Date.now(), slot: state.slot,
+        memo: memoVal, photo: state.photo || null,
+      }));
+      closeSheet(); toast("한 끼 기록 완료 🍽️");
+    }
     await refreshMeal();
   }catch(e){ toast("저장하지 못했어요 — 저장 공간이 부족할 수 있어요"); }
   state.saving = false; updateSaveBtn();
@@ -706,6 +736,12 @@ $("backdrop").addEventListener("click", closeSheet);
 $("photoInput").addEventListener("change", e=>{ onPhotoPicked(e.target.files[0]); e.target.value = ""; });
 $("memo").addEventListener("input", updateSaveBtn);
 $("rechoose").addEventListener("click", ()=>$("photoInput").click());
+$("removePhoto").addEventListener("click", ()=>{
+  state.photo = null;
+  $("previewWrap").style.display = "none";
+  $("pickLabel").style.display = "block";
+  updateSaveBtn();
+});
 $("slots").addEventListener("click", e=>{
   const b = e.target.closest("button[data-slot]");
   if(b){ state.slot = b.dataset.slot; updateSlotButtons(); }
